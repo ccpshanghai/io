@@ -1,6 +1,6 @@
 # CCP Python Module Modifications
 
-These patch files keep track of changes made to files sourced from CCPs fork of the cpython repo https://github.com/ccpgames/cpython. Please make sure to generate new patch files when you make changes to their corresponding source files.
+These patch files keep track of changes made to files sourced from upstream cpython repo https://github.com/python/cpython. Please make sure to generate new patch files when you make changes to their corresponding source files.
 
 When updating to a new Python version fresh copies of those files should be placed in the repo. Then the patches should be applied either manually by hand, or using whatever tools you like. Be mindful that not all changes required are necessarily going to be included in the patch. For example the socket module has been converted from C to C++, so any C++ incompatible changes will have to be fixed up.
 
