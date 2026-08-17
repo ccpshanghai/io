@@ -327,7 +327,7 @@ typedef struct PySocketSockObject_t {
     PyObject *(*errorhandler)(void); /* Error handler; checks
                                         errno, returns NULL and
                                         sets a Python exception */
-    _PyTime_t sock_timeout;     /* Operation timeout in seconds;
+    PyTime_t sock_timeout;     /* Operation timeout in seconds;
                                         0.0 means non-blocking */
     struct _socket_state *state;
 	uv_handle_t* uv_handle;     /* the libuv handle associated with this socket object */

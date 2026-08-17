@@ -157,7 +157,7 @@ protected:
 	void sendError(std::string_view msg);
 
 	uv_timer_t* m_timeout{nullptr};
-	_PyTime_t m_timeout_nanoseconds{-1};
+	PyTime_t m_timeout_nanoseconds{-1};
 	bool m_timedOut{false};
 
 	// Requests wait by receiving on this channel as they wait for asynchronous
