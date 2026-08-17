@@ -108,8 +108,10 @@ Local naming conventions:
 
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
+#include "internal/pycore_capsule.h"       // _PyCapsule_SetTraverse()
 #include "internal/pycore_fileutils.h"     // _Py_set_inheritable()
 #include "internal/pycore_moduleobject.h"  // _PyModule_GetState
+#include "internal/pycore_time.h"          // _PyTime_AsMilliseconds()
 #include "structmember.h"         // PyMemberDef
 
 #ifdef _Py_MEMORY_SANITIZER
