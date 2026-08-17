@@ -58,6 +58,20 @@ target_include_directories(_socket
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${SCHEDULER_INCLUDE_DIR}
 )
+# CPython 3.13's Argument Clinic unconditionally emits bare
+# #include "pycore_gc.h" / "pycore_runtime.h" / "pycore_modsupport.h"
+# into src/clinic/socketmodule.c.h (see libclinic/parse_args.py, converters.py,
+# converter.py) - unlike the hand-maintained .cpp/.h files, this generated
+# header cannot be given the "internal/" prefix CCP uses elsewhere without
+# hand-editing output that Argument Clinic will just regenerate again. Adding
+# this directory lets the bare names resolve too; zero functional change,
+# pure repackaging, same spirit as the "internal/" rewrites already applied
+# by hand in socketmodule.cpp, and the same fix Task 1 applied to _select
+# and Task 2 applied to _ssl.
+target_include_directories(_socket
+        PRIVATE
+        ${Python3_INCLUDE_DIRS}/internal
+)
 
 # The following variable is defined only on DLL systems
 if(CMAKE_IMPORT_LIBRARY_SUFFIX)

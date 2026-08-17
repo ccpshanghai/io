@@ -2,13 +2,11 @@
 preserve
 [clinic start generated code]*/
 
-// Modified by CCP ehf.
-
 #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-#  include "pycore_gc.h"            // PyGC_Head
-#  include "pycore_runtime.h"       // _Py_ID()
+#  include "pycore_gc.h"          // PyGC_Head
+#  include "pycore_runtime.h"     // _Py_ID()
 #endif
-
+#include "pycore_modsupport.h"    // _PyArg_UnpackKeywords()
 
 static int
 sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
@@ -37,10 +35,11 @@ sock_initobj(PyObject *self, PyObject *args, PyObject *kwargs)
     #endif  // !Py_BUILD_CORE
 
     static const char * const _keywords[] = {"family", "type", "proto", "fileno", NULL};
-    static _PyArg_Parser _parser{0};
-    _parser.keywords = _keywords;
-    _parser.fname = "socket";
-    _parser.kwtuple = KWTUPLE;
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "socket",
+        .kwtuple = KWTUPLE,
+    };
     #undef KWTUPLE
     PyObject *argsbuf[4];
     PyObject * const *fastargs;
@@ -92,4 +91,4 @@ skip_optional_pos:
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=987155ac4b48a198 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=c85517815c2d69cf input=a9049054013a1b77]*/
