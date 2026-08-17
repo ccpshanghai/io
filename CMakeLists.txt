@@ -127,6 +127,19 @@ target_include_directories(_ssl
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${SCHEDULER_INCLUDE_DIR}
 )
+# CPython 3.13's Argument Clinic unconditionally emits bare
+# #include "pycore_critical_section.h" / "pycore_modsupport.h" (and, depending
+# on the converters a given file uses, "pycore_long.h") into src/clinic/_ssl.c.h
+# and src/_ssl/clinic/cert.c.h - unlike the hand-maintained .c files, this
+# generated output cannot be given the "internal/" prefix CCP uses elsewhere
+# without hand-editing output that Argument Clinic will just regenerate again.
+# Adding this directory lets the bare names resolve too; zero functional change,
+# pure repackaging, same spirit as the "internal/" rewrites already applied by
+# hand in _ssl.c, and the same fix Task 1 applied to _select.
+target_include_directories(_ssl
+        PRIVATE
+        ${Python3_INCLUDE_DIRS}/internal
+)
 
 # --- _select ---
 ccp_add_library(_select SHARED

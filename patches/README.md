@@ -18,7 +18,6 @@ Mapping of files sourced from Python:
 | Modules/clinic/socketmodule.c.h | src/clinic/socketmodule.c.h |    
 | Modules/_ssl.c                  | src/_ssl.c                  |   
 | Modules/_ssl.h                  | src/_ssl.h                  |  
-| Modules/_ssl_data.h             | src/_ssl_data.h             | 
 | Modules/_ssl_data_31.h          | src/_ssl_data_31.h          |
 | Modules/_ssl_data_111.h         | src/_ssl_data_111.h         |
 | Modules/_ssl_data_300.h         | src/_ssl_data_300.h         |
