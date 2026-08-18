@@ -120,7 +120,7 @@ source_group("_ssl" FILES
 target_link_libraries(_ssl
         PRIVATE
         Python3::Python
-        libuv::uv
+        $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>
         CcpCore
         PUBLIC
         OpenSSL::Crypto
