@@ -17,8 +17,7 @@
 #include "Python.h"
 #include "internal/pycore_fileutils.h"     // _Py_set_inheritable()
 #include "internal/pycore_import.h"        // _PyImport_GetModuleAttrString()
-#include "internal/pycore_time.h"          // _PyTime_t
-#include "structmember.h"         // PyMemberDef
+#include "internal/pycore_time.h"          // _PyTime_FromSecondsObject()
 
 #include <stdbool.h>
 #include <stddef.h>               // offsetof()
@@ -255,7 +254,8 @@ select.select
 
 Wait until one or more file descriptors are ready for some kind of I/O.
 
-The first three arguments are iterables of file descriptors to be waited for:
+The first three arguments are iterables of file descriptors to be waited
+for:
 rlist -- wait until ready for reading
 wlist -- wait until ready for writing
 xlist -- wait for an "exceptional condition"
@@ -265,12 +265,12 @@ A file descriptor is either a socket or file object, or a small integer
 gotten from a fileno() method call on one of those.
 
 The optional 4th argument specifies a timeout in seconds; it may be
-a floating point number to specify fractions of seconds.  If it is absent
+a floating-point number to specify fractions of seconds.  If it is absent
 or None, the call will never time out.
 
-The return value is a tuple of three lists corresponding to the first three
-arguments; each contains the subset of the corresponding file descriptors
-that are ready.
+The return value is a tuple of three lists corresponding to the first
+three arguments; each contains the subset of the corresponding file
+descriptors that are ready.
 
 *** IMPORTANT NOTICE ***
 On Windows, only sockets are supported; on Unix, all file
@@ -280,7 +280,7 @@ descriptors can be used.
 static PyObject *
 select_select_impl(PyObject *module, PyObject *rlist, PyObject *wlist,
                    PyObject *xlist, PyObject *timeout_obj)
-/*[clinic end generated code: output=2b3cfa824f7ae4cf input=e467f5d68033de00]*/
+/*[clinic end generated code: output=2b3cfa824f7ae4cf input=34a2c2075ca9830e]*/
 {
 #ifdef SELECT_USES_HEAP
     pylist *rfd2obj, *wfd2obj, *efd2obj;
@@ -300,7 +300,7 @@ select_select_impl(PyObject *module, PyObject *rlist, PyObject *wlist,
     struct timeval tv, *tvp;
     int imax, omax, emax, max;
     int n;
-    _PyTime_t timeout, deadline = 0;
+    PyTime_t timeout, deadline = 0;
 
     if (timeout_obj == Py_None)
         tvp = (struct timeval *)NULL;
@@ -476,6 +476,7 @@ update_ufd_array(pollObject *self)
 }
 
 /*[clinic input]
+@critical_section
 select.poll.register
 
     fd: fildes
@@ -489,7 +490,7 @@ Register a file descriptor with the polling object.
 
 static PyObject *
 select_poll_register_impl(pollObject *self, int fd, unsigned short eventmask)
-/*[clinic end generated code: output=0dc7173c800a4a65 input=34e16cfb28d3c900]*/
+/*[clinic end generated code: output=0dc7173c800a4a65 input=c475e029ce6c2830]*/
 {
     PyObject *key, *value;
     int err;
@@ -517,6 +518,7 @@ select_poll_register_impl(pollObject *self, int fd, unsigned short eventmask)
 
 
 /*[clinic input]
+@critical_section
 select.poll.modify
 
     fd: fildes
@@ -531,7 +533,7 @@ Modify an already registered file descriptor.
 
 static PyObject *
 select_poll_modify_impl(pollObject *self, int fd, unsigned short eventmask)
-/*[clinic end generated code: output=1a7b88bf079eff17 input=a8e383df075c32cf]*/
+/*[clinic end generated code: output=1a7b88bf079eff17 input=38c9db5346711872]*/
 {
     PyObject *key, *value;
     int err;
@@ -569,6 +571,7 @@ select_poll_modify_impl(pollObject *self, int fd, unsigned short eventmask)
 
 
 /*[clinic input]
+@critical_section
 select.poll.unregister
 
     fd: fildes
@@ -579,7 +582,7 @@ Remove a file descriptor being tracked by the polling object.
 
 static PyObject *
 select_poll_unregister_impl(pollObject *self, int fd)
-/*[clinic end generated code: output=8c9f42e75e7d291b input=4b4fccc1040e79cb]*/
+/*[clinic end generated code: output=8c9f42e75e7d291b input=ae6315d7f5243704]*/
 {
     PyObject *key;
 
@@ -602,6 +605,7 @@ select_poll_unregister_impl(pollObject *self, int fd)
 }
 
 /*[clinic input]
+@critical_section
 select.poll.poll
 
     timeout as timeout_obj: object = None
@@ -611,18 +615,18 @@ select.poll.poll
 
 Polls the set of registered file descriptors.
 
-Returns a list containing any descriptors that have events or errors to
-report, as a list of (fd, event) 2-tuples.
+Returns a list containing any descriptors that have events or errors
+to report, as a list of (fd, event) 2-tuples.
 [clinic start generated code]*/
 
 static PyObject *
 select_poll_poll_impl(pollObject *self, PyObject *timeout_obj)
-/*[clinic end generated code: output=876e837d193ed7e4 input=c2f6953ec45e5622]*/
+/*[clinic end generated code: output=876e837d193ed7e4 input=e0a9c0aa283de8c8]*/
 {
     PyObject *result_list = NULL;
     int poll_result, i, j;
     PyObject *value = NULL, *num = NULL;
-    _PyTime_t timeout = -1, ms = -1, deadline = 0;
+    PyTime_t timeout = -1, ms = -1, deadline = 0;
     int async_err = 0;
 
     if (timeout_obj != Py_None) {
@@ -860,6 +864,7 @@ internal_devpoll_register(devpollObject *self, int fd,
 }
 
 /*[clinic input]
+@critical_section
 select.devpoll.register
 
     fd: fildes
@@ -875,12 +880,13 @@ Register a file descriptor with the polling object.
 static PyObject *
 select_devpoll_register_impl(devpollObject *self, int fd,
                              unsigned short eventmask)
-/*[clinic end generated code: output=6e07fe8b74abba0c input=22006fabe9567522]*/
+/*[clinic end generated code: output=6e07fe8b74abba0c input=8d48bd2653a61c42]*/
 {
     return internal_devpoll_register(self, fd, eventmask, 0);
 }
 
 /*[clinic input]
+@critical_section
 select.devpoll.modify
 
     fd: fildes
@@ -896,12 +902,13 @@ Modify a possible already registered file descriptor.
 static PyObject *
 select_devpoll_modify_impl(devpollObject *self, int fd,
                            unsigned short eventmask)
-/*[clinic end generated code: output=bc2e6d23aaff98b4 input=09fa335db7cdc09e]*/
+/*[clinic end generated code: output=bc2e6d23aaff98b4 input=773b37e9abca2460]*/
 {
     return internal_devpoll_register(self, fd, eventmask, 1);
 }
 
 /*[clinic input]
+@critical_section
 select.devpoll.unregister
 
     fd: fildes
@@ -912,7 +919,7 @@ Remove a file descriptor being tracked by the polling object.
 
 static PyObject *
 select_devpoll_unregister_impl(devpollObject *self, int fd)
-/*[clinic end generated code: output=95519ffa0c7d43fe input=b4ea42a4442fd467]*/
+/*[clinic end generated code: output=95519ffa0c7d43fe input=6052d368368d4d05]*/
 {
     if (self->fd_devpoll < 0)
         return devpoll_err_closed();
@@ -929,27 +936,28 @@ select_devpoll_unregister_impl(devpollObject *self, int fd)
 }
 
 /*[clinic input]
+@critical_section
 select.devpoll.poll
     timeout as timeout_obj: object = None
-      The maximum time to wait in milliseconds, or else None (or a negative
-      value) to wait indefinitely.
+      The maximum time to wait in milliseconds, or else None (or
+      a negative value) to wait indefinitely.
     /
 
 Polls the set of registered file descriptors.
 
-Returns a list containing any descriptors that have events or errors to
-report, as a list of (fd, event) 2-tuples.
+Returns a list containing any descriptors that have events or errors
+to report, as a list of (fd, event) 2-tuples.
 [clinic start generated code]*/
 
 static PyObject *
 select_devpoll_poll_impl(devpollObject *self, PyObject *timeout_obj)
-/*[clinic end generated code: output=2654e5457cca0b3c input=3c3f0a355ec2bedb]*/
+/*[clinic end generated code: output=2654e5457cca0b3c input=9e1672658d728539]*/
 {
     struct dvpoll dvp;
     PyObject *result_list = NULL;
     int poll_result, i;
     PyObject *value, *num1, *num2;
-    _PyTime_t timeout, ms, deadline = 0;
+    PyTime_t timeout, ms, deadline = 0;
 
     if (self->fd_devpoll < 0)
         return devpoll_err_closed();
@@ -1062,6 +1070,7 @@ devpoll_internal_close(devpollObject *self)
 }
 
 /*[clinic input]
+@critical_section
 select.devpoll.close
 
 Close the devpoll file descriptor.
@@ -1071,7 +1080,7 @@ Further operations on the devpoll object will raise an exception.
 
 static PyObject *
 select_devpoll_close_impl(devpollObject *self)
-/*[clinic end generated code: output=26b355bd6429f21b input=6273c30f5560a99b]*/
+/*[clinic end generated code: output=26b355bd6429f21b input=408fde21a377ccfb]*/
 {
     errno = devpoll_internal_close(self);
     if (errno < 0) {
@@ -1091,6 +1100,7 @@ devpoll_get_closed(devpollObject *self, void *Py_UNUSED(ignored))
 }
 
 /*[clinic input]
+@critical_section
 select.devpoll.fileno
 
 Return the file descriptor.
@@ -1098,7 +1108,7 @@ Return the file descriptor.
 
 static PyObject *
 select_devpoll_fileno_impl(devpollObject *self)
-/*[clinic end generated code: output=26920929f8d292f4 input=ef15331ebde6c368]*/
+/*[clinic end generated code: output=26920929f8d292f4 input=8c9db2efa1ade538]*/
 {
     if (self->fd_devpoll < 0)
         return devpoll_err_closed();
@@ -1189,13 +1199,13 @@ select.poll
 
 Returns a polling object.
 
-This object supports registering and unregistering file descriptors, and then
-polling them for I/O events.
+This object supports registering and unregistering file descriptors, and
+then polling them for I/O events.
 [clinic start generated code]*/
 
 static PyObject *
 select_poll_impl(PyObject *module)
-/*[clinic end generated code: output=16a665a4e1d228c5 input=3f877909d5696bbf]*/
+/*[clinic end generated code: output=16a665a4e1d228c5 input=0aefd4527e99e0aa]*/
 {
     return (PyObject *)newPollObject(module);
 }
@@ -1207,13 +1217,13 @@ select.devpoll
 
 Returns a polling object.
 
-This object supports registering and unregistering file descriptors, and then
-polling them for I/O events.
+This object supports registering and unregistering file descriptors, and
+then polling them for I/O events.
 [clinic start generated code]*/
 
 static PyObject *
 select_devpoll_impl(PyObject *module)
-/*[clinic end generated code: output=ea9213cc87fd9581 input=53a1af94564f00a3]*/
+/*[clinic end generated code: output=ea9213cc87fd9581 input=4c2ac27d10248526]*/
 {
     return (PyObject *)newDevPollObject(module);
 }
@@ -1381,6 +1391,7 @@ pyepoll_dealloc(pyEpoll_Object *self)
 }
 
 /*[clinic input]
+@critical_section
 select.epoll.close
 
 Close the epoll control file descriptor.
@@ -1390,7 +1401,7 @@ Further operations on the epoll object will raise an exception.
 
 static PyObject *
 select_epoll_close_impl(pyEpoll_Object *self)
-/*[clinic end generated code: output=ee2144c446a1a435 input=ca6c66ba5a736bfd]*/
+/*[clinic end generated code: output=ee2144c446a1a435 input=f626a769192e1dbe]*/
 {
     errno = pyepoll_internal_close(self);
     if (errno < 0) {
@@ -1550,19 +1561,19 @@ select.epoll.poll
 
 Wait for events on the epoll file descriptor.
 
-Returns a list containing any descriptors that have events to report,
-as a list of (fd, events) 2-tuples.
+Returns a list containing any descriptors that have events to
+report, as a list of (fd, events) 2-tuples.
 [clinic start generated code]*/
 
 static PyObject *
 select_epoll_poll_impl(pyEpoll_Object *self, PyObject *timeout_obj,
                        int maxevents)
-/*[clinic end generated code: output=e02d121a20246c6c input=33d34a5ea430fd5b]*/
+/*[clinic end generated code: output=e02d121a20246c6c input=5a49d65788c70c7a]*/
 {
     int nfds, i;
     PyObject *elist = NULL, *etuple = NULL;
     struct epoll_event *evs = NULL;
-    _PyTime_t timeout = -1, ms = -1, deadline = 0;
+    PyTime_t timeout = -1, ms = -1, deadline = 0;
 
     if (self->epfd < 0)
         return pyepoll_err_closed();
@@ -1780,18 +1791,18 @@ typedef struct kqueue_queue_Object {
 #if (SIZEOF_UINTPTR_T != SIZEOF_VOID_P)
 #   error uintptr_t does not match void *!
 #elif (SIZEOF_UINTPTR_T == SIZEOF_LONG_LONG)
-#   define T_UINTPTRT         T_ULONGLONG
-#   define T_INTPTRT          T_LONGLONG
+#   define T_UINTPTRT         Py_T_ULONGLONG
+#   define T_INTPTRT          Py_T_LONGLONG
 #   define UINTPTRT_FMT_UNIT  "K"
 #   define INTPTRT_FMT_UNIT   "L"
 #elif (SIZEOF_UINTPTR_T == SIZEOF_LONG)
-#   define T_UINTPTRT         T_ULONG
-#   define T_INTPTRT          T_LONG
+#   define T_UINTPTRT         Py_T_ULONG
+#   define T_INTPTRT          Py_T_LONG
 #   define UINTPTRT_FMT_UNIT  "k"
 #   define INTPTRT_FMT_UNIT   "l"
 #elif (SIZEOF_UINTPTR_T == SIZEOF_INT)
-#   define T_UINTPTRT         T_UINT
-#   define T_INTPTRT          T_INT
+#   define T_UINTPTRT         Py_T_UINT
+#   define T_INTPTRT          Py_T_INT
 #   define UINTPTRT_FMT_UNIT  "I"
 #   define INTPTRT_FMT_UNIT   "i"
 #else
@@ -1799,26 +1810,26 @@ typedef struct kqueue_queue_Object {
 #endif
 
 #if SIZEOF_LONG_LONG == 8
-#   define T_INT64          T_LONGLONG
+#   define T_INT64          Py_T_LONGLONG
 #   define INT64_FMT_UNIT   "L"
 #elif SIZEOF_LONG == 8
-#   define T_INT64          T_LONG
+#   define T_INT64          Py_T_LONG
 #   define INT64_FMT_UNIT   "l"
 #elif SIZEOF_INT == 8
-#   define T_INT64          T_INT
+#   define T_INT64          Py_T_INT
 #   define INT64_FMT_UNIT   "i"
 #else
 #   define INT64_FMT_UNIT   "_"
 #endif
 
 #if SIZEOF_LONG_LONG == 4
-#   define T_UINT32         T_ULONGLONG
+#   define T_UINT32         Py_T_ULONGLONG
 #   define UINT32_FMT_UNIT  "K"
 #elif SIZEOF_LONG == 4
-#   define T_UINT32         T_ULONG
+#   define T_UINT32         Py_T_ULONG
 #   define UINT32_FMT_UNIT  "k"
 #elif SIZEOF_INT == 4
-#   define T_UINT32         T_UINT
+#   define T_UINT32         Py_T_UINT
 #   define UINT32_FMT_UNIT  "I"
 #else
 #   define UINT32_FMT_UNIT  "_"
@@ -1835,11 +1846,11 @@ typedef struct kqueue_queue_Object {
 #   define FFLAGS_TYPE      T_UINT32
 #   define FFLAGS_FMT_UNIT  UINT32_FMT_UNIT
 #else
-#   define FILTER_TYPE      T_SHORT
+#   define FILTER_TYPE      Py_T_SHORT
 #   define FILTER_FMT_UNIT  "h"
-#   define FLAGS_TYPE       T_USHORT
+#   define FLAGS_TYPE       Py_T_USHORT
 #   define FLAGS_FMT_UNIT   "H"
-#   define FFLAGS_TYPE      T_UINT
+#   define FFLAGS_TYPE      Py_T_UINT
 #   define FFLAGS_FMT_UNIT  "I"
 #endif
 
@@ -1861,7 +1872,7 @@ static struct PyMemberDef kqueue_event_members[] = {
     {"ident",           T_UINTPTRT,     KQ_OFF(e.ident)},
     {"filter",          FILTER_TYPE,    KQ_OFF(e.filter)},
     {"flags",           FLAGS_TYPE,     KQ_OFF(e.flags)},
-    {"fflags",          T_UINT,         KQ_OFF(e.fflags)},
+    {"fflags",          Py_T_UINT,         KQ_OFF(e.fflags)},
     {"data",            DATA_TYPE,      KQ_OFF(e.data)},
     {"udata",           T_UINTPTRT,     KQ_OFF(e.udata)},
     {NULL} /* Sentinel */
@@ -2026,10 +2037,8 @@ finally:
 }
 
 static int
-kqueue_tracking_add(_selectstate *state, kqueue_queue_Object *self) {
-    if (!state->kqueue_tracking_initialized) {
-        kqueue_tracking_init(PyType_GetModule(Py_TYPE(self)));
-    }
+kqueue_tracking_add_lock_held(_selectstate *state, kqueue_queue_Object *self)
+{
     assert(self->kqfd >= 0);
     _kqueue_list_item *item = PyMem_New(_kqueue_list_item, 1);
     if (item == NULL) {
@@ -2042,8 +2051,23 @@ kqueue_tracking_add(_selectstate *state, kqueue_queue_Object *self) {
     return 0;
 }
 
+static int
+kqueue_tracking_add(_selectstate *state, kqueue_queue_Object *self)
+{
+    int ret;
+    PyObject *module = PyType_GetModule(Py_TYPE(self));
+    Py_BEGIN_CRITICAL_SECTION(module);
+    if (!state->kqueue_tracking_initialized) {
+        kqueue_tracking_init(module);
+    }
+    ret = kqueue_tracking_add_lock_held(state, self);
+    Py_END_CRITICAL_SECTION();
+    return ret;
+}
+
 static void
-kqueue_tracking_remove(_selectstate *state, kqueue_queue_Object *self) {
+kqueue_tracking_remove_lock_held(_selectstate *state, kqueue_queue_Object *self)
+{
     _kqueue_list *listptr = &state->kqueue_open_list;
     while (*listptr != NULL) {
         _kqueue_list_item *item = *listptr;
@@ -2057,6 +2081,14 @@ kqueue_tracking_remove(_selectstate *state, kqueue_queue_Object *self) {
     // The item should be in the list when we remove it,
     // and it should only be removed once at close time.
     assert(0);
+}
+
+static void
+kqueue_tracking_remove(_selectstate *state, kqueue_queue_Object *self)
+{
+    Py_BEGIN_CRITICAL_SECTION(PyType_GetModule(Py_TYPE(self)));
+    kqueue_tracking_remove_lock_held(state, self);
+    Py_END_CRITICAL_SECTION();
 }
 
 static int
@@ -2153,6 +2185,7 @@ kqueue_queue_finalize(kqueue_queue_Object *self)
 }
 
 /*[clinic input]
+@critical_section
 select.kqueue.close
 
 Close the kqueue control file descriptor.
@@ -2162,7 +2195,7 @@ Further operations on the kqueue object will raise an exception.
 
 static PyObject *
 select_kqueue_close_impl(kqueue_queue_Object *self)
-/*[clinic end generated code: output=d1c7df0b407a4bc1 input=0b12d95430e0634c]*/
+/*[clinic end generated code: output=d1c7df0b407a4bc1 input=6d763c858b17b690]*/
 {
     errno = kqueue_queue_internal_close(self);
     if (errno < 0) {
@@ -2245,7 +2278,7 @@ select_kqueue_control_impl(kqueue_queue_Object *self, PyObject *changelist,
     struct kevent *chl = NULL;
     struct timespec timeoutspec;
     struct timespec *ptimeoutspec;
-    _PyTime_t timeout, deadline = 0;
+    PyTime_t timeout, deadline = 0;
     _selectstate *state = _selectstate_by_type(Py_TYPE(self));
 
     if (self->kqfd < 0)
@@ -2575,12 +2608,18 @@ _select_exec(PyObject *m)
         return -1;
     }
 
+#define ADD_INT(VAL) do {                                 \
+    if (PyModule_AddIntConstant((m), #VAL, (VAL)) < 0) {  \
+        return -1;                                        \
+    }                                                     \
+} while (0)
+
 #ifdef PIPE_BUF
 #ifdef HAVE_BROKEN_PIPE_BUF
 #undef PIPE_BUF
 #define PIPE_BUF 512
 #endif
-    PyModule_AddIntMacro(m, PIPE_BUF);
+    ADD_INT(PIPE_BUF);
 #endif
 
 #if defined(HAVE_POLL) && !defined(HAVE_BROKEN_POLL)
@@ -2599,31 +2638,31 @@ _select_exec(PyObject *m)
             return -1;
         }
 
-        PyModule_AddIntMacro(m, POLLIN);
-        PyModule_AddIntMacro(m, POLLPRI);
-        PyModule_AddIntMacro(m, POLLOUT);
-        PyModule_AddIntMacro(m, POLLERR);
-        PyModule_AddIntMacro(m, POLLHUP);
-        PyModule_AddIntMacro(m, POLLNVAL);
+        ADD_INT(POLLIN);
+        ADD_INT(POLLPRI);
+        ADD_INT(POLLOUT);
+        ADD_INT(POLLERR);
+        ADD_INT(POLLHUP);
+        ADD_INT(POLLNVAL);
 
 #ifdef POLLRDNORM
-        PyModule_AddIntMacro(m, POLLRDNORM);
+        ADD_INT(POLLRDNORM);
 #endif
 #ifdef POLLRDBAND
-        PyModule_AddIntMacro(m, POLLRDBAND);
+        ADD_INT(POLLRDBAND);
 #endif
 #ifdef POLLWRNORM
-        PyModule_AddIntMacro(m, POLLWRNORM);
+        ADD_INT(POLLWRNORM);
 #endif
 #ifdef POLLWRBAND
-        PyModule_AddIntMacro(m, POLLWRBAND);
+        ADD_INT(POLLWRBAND);
 #endif
 #ifdef POLLMSG
-        PyModule_AddIntMacro(m, POLLMSG);
+        ADD_INT(POLLMSG);
 #endif
 #ifdef POLLRDHUP
         /* Kernel 2.6.17+ */
-        PyModule_AddIntMacro(m, POLLRDHUP);
+        ADD_INT(POLLRDHUP);
 #endif
     }
 #endif /* HAVE_POLL */
@@ -2646,44 +2685,53 @@ _select_exec(PyObject *m)
         return -1;
     }
 
-    PyModule_AddIntMacro(m, EPOLLIN);
-    PyModule_AddIntMacro(m, EPOLLOUT);
-    PyModule_AddIntMacro(m, EPOLLPRI);
-    PyModule_AddIntMacro(m, EPOLLERR);
-    PyModule_AddIntMacro(m, EPOLLHUP);
+    ADD_INT(EPOLLIN);
+    ADD_INT(EPOLLOUT);
+    ADD_INT(EPOLLPRI);
+    ADD_INT(EPOLLERR);
+    ADD_INT(EPOLLHUP);
 #ifdef EPOLLRDHUP
     /* Kernel 2.6.17 */
-    PyModule_AddIntMacro(m, EPOLLRDHUP);
+    ADD_INT(EPOLLRDHUP);
 #endif
-    PyModule_AddIntMacro(m, EPOLLET);
+    ADD_INT(EPOLLET);
 #ifdef EPOLLONESHOT
     /* Kernel 2.6.2+ */
-    PyModule_AddIntMacro(m, EPOLLONESHOT);
+    ADD_INT(EPOLLONESHOT);
 #endif
 #ifdef EPOLLEXCLUSIVE
-    PyModule_AddIntMacro(m, EPOLLEXCLUSIVE);
+    ADD_INT(EPOLLEXCLUSIVE);
 #endif
 
 #ifdef EPOLLRDNORM
-    PyModule_AddIntMacro(m, EPOLLRDNORM);
+    ADD_INT(EPOLLRDNORM);
 #endif
 #ifdef EPOLLRDBAND
-    PyModule_AddIntMacro(m, EPOLLRDBAND);
+    ADD_INT(EPOLLRDBAND);
 #endif
 #ifdef EPOLLWRNORM
-    PyModule_AddIntMacro(m, EPOLLWRNORM);
+    ADD_INT(EPOLLWRNORM);
 #endif
 #ifdef EPOLLWRBAND
-    PyModule_AddIntMacro(m, EPOLLWRBAND);
+    ADD_INT(EPOLLWRBAND);
 #endif
 #ifdef EPOLLMSG
-    PyModule_AddIntMacro(m, EPOLLMSG);
+    ADD_INT(EPOLLMSG);
 #endif
 
 #ifdef EPOLL_CLOEXEC
-    PyModule_AddIntMacro(m, EPOLL_CLOEXEC);
+    ADD_INT(EPOLL_CLOEXEC);
 #endif
 #endif /* HAVE_EPOLL */
+
+#undef ADD_INT
+
+#define ADD_INT_CONST(NAME, VAL) \
+    do { \
+        if (PyModule_AddIntConstant(m, NAME, VAL) < 0) { \
+            return -1; \
+        } \
+    } while (0)
 
 #ifdef HAVE_KQUEUE
     state->kqueue_open_list = NULL;
@@ -2707,86 +2755,90 @@ _select_exec(PyObject *m)
     }
 
     /* event filters */
-    PyModule_AddIntConstant(m, "KQ_FILTER_READ", EVFILT_READ);
-    PyModule_AddIntConstant(m, "KQ_FILTER_WRITE", EVFILT_WRITE);
+    ADD_INT_CONST("KQ_FILTER_READ", EVFILT_READ);
+    ADD_INT_CONST("KQ_FILTER_WRITE", EVFILT_WRITE);
 #ifdef EVFILT_AIO
-    PyModule_AddIntConstant(m, "KQ_FILTER_AIO", EVFILT_AIO);
+    ADD_INT_CONST("KQ_FILTER_AIO", EVFILT_AIO);
 #endif
 #ifdef EVFILT_VNODE
-    PyModule_AddIntConstant(m, "KQ_FILTER_VNODE", EVFILT_VNODE);
+    ADD_INT_CONST("KQ_FILTER_VNODE", EVFILT_VNODE);
 #endif
 #ifdef EVFILT_PROC
-    PyModule_AddIntConstant(m, "KQ_FILTER_PROC", EVFILT_PROC);
+    ADD_INT_CONST("KQ_FILTER_PROC", EVFILT_PROC);
 #endif
 #ifdef EVFILT_NETDEV
-    PyModule_AddIntConstant(m, "KQ_FILTER_NETDEV", EVFILT_NETDEV);
+    ADD_INT_CONST("KQ_FILTER_NETDEV", EVFILT_NETDEV);
 #endif
 #ifdef EVFILT_SIGNAL
-    PyModule_AddIntConstant(m, "KQ_FILTER_SIGNAL", EVFILT_SIGNAL);
+    ADD_INT_CONST("KQ_FILTER_SIGNAL", EVFILT_SIGNAL);
 #endif
-    PyModule_AddIntConstant(m, "KQ_FILTER_TIMER", EVFILT_TIMER);
+    ADD_INT_CONST("KQ_FILTER_TIMER", EVFILT_TIMER);
 
     /* event flags */
-    PyModule_AddIntConstant(m, "KQ_EV_ADD", EV_ADD);
-    PyModule_AddIntConstant(m, "KQ_EV_DELETE", EV_DELETE);
-    PyModule_AddIntConstant(m, "KQ_EV_ENABLE", EV_ENABLE);
-    PyModule_AddIntConstant(m, "KQ_EV_DISABLE", EV_DISABLE);
-    PyModule_AddIntConstant(m, "KQ_EV_ONESHOT", EV_ONESHOT);
-    PyModule_AddIntConstant(m, "KQ_EV_CLEAR", EV_CLEAR);
+    ADD_INT_CONST("KQ_EV_ADD", EV_ADD);
+    ADD_INT_CONST("KQ_EV_DELETE", EV_DELETE);
+    ADD_INT_CONST("KQ_EV_ENABLE", EV_ENABLE);
+    ADD_INT_CONST("KQ_EV_DISABLE", EV_DISABLE);
+    ADD_INT_CONST("KQ_EV_ONESHOT", EV_ONESHOT);
+    ADD_INT_CONST("KQ_EV_CLEAR", EV_CLEAR);
 
 #ifdef EV_SYSFLAGS
-    PyModule_AddIntConstant(m, "KQ_EV_SYSFLAGS", EV_SYSFLAGS);
+    ADD_INT_CONST("KQ_EV_SYSFLAGS", EV_SYSFLAGS);
 #endif
 #ifdef EV_FLAG1
-    PyModule_AddIntConstant(m, "KQ_EV_FLAG1", EV_FLAG1);
+    ADD_INT_CONST("KQ_EV_FLAG1", EV_FLAG1);
 #endif
 
-    PyModule_AddIntConstant(m, "KQ_EV_EOF", EV_EOF);
-    PyModule_AddIntConstant(m, "KQ_EV_ERROR", EV_ERROR);
+    ADD_INT_CONST("KQ_EV_EOF", EV_EOF);
+    ADD_INT_CONST("KQ_EV_ERROR", EV_ERROR);
 
     /* READ WRITE filter flag */
 #ifdef NOTE_LOWAT
-    PyModule_AddIntConstant(m, "KQ_NOTE_LOWAT", NOTE_LOWAT);
+    ADD_INT_CONST("KQ_NOTE_LOWAT", NOTE_LOWAT);
 #endif
 
     /* VNODE filter flags  */
 #ifdef EVFILT_VNODE
-    PyModule_AddIntConstant(m, "KQ_NOTE_DELETE", NOTE_DELETE);
-    PyModule_AddIntConstant(m, "KQ_NOTE_WRITE", NOTE_WRITE);
-    PyModule_AddIntConstant(m, "KQ_NOTE_EXTEND", NOTE_EXTEND);
-    PyModule_AddIntConstant(m, "KQ_NOTE_ATTRIB", NOTE_ATTRIB);
-    PyModule_AddIntConstant(m, "KQ_NOTE_LINK", NOTE_LINK);
-    PyModule_AddIntConstant(m, "KQ_NOTE_RENAME", NOTE_RENAME);
-    PyModule_AddIntConstant(m, "KQ_NOTE_REVOKE", NOTE_REVOKE);
+    ADD_INT_CONST("KQ_NOTE_DELETE", NOTE_DELETE);
+    ADD_INT_CONST("KQ_NOTE_WRITE", NOTE_WRITE);
+    ADD_INT_CONST("KQ_NOTE_EXTEND", NOTE_EXTEND);
+    ADD_INT_CONST("KQ_NOTE_ATTRIB", NOTE_ATTRIB);
+    ADD_INT_CONST("KQ_NOTE_LINK", NOTE_LINK);
+    ADD_INT_CONST("KQ_NOTE_RENAME", NOTE_RENAME);
+    ADD_INT_CONST("KQ_NOTE_REVOKE", NOTE_REVOKE);
 #endif
 
     /* PROC filter flags  */
 #ifdef EVFILT_PROC
-    PyModule_AddIntConstant(m, "KQ_NOTE_EXIT", NOTE_EXIT);
-    PyModule_AddIntConstant(m, "KQ_NOTE_FORK", NOTE_FORK);
-    PyModule_AddIntConstant(m, "KQ_NOTE_EXEC", NOTE_EXEC);
-    PyModule_AddIntConstant(m, "KQ_NOTE_PCTRLMASK", NOTE_PCTRLMASK);
-    PyModule_AddIntConstant(m, "KQ_NOTE_PDATAMASK", NOTE_PDATAMASK);
+    ADD_INT_CONST("KQ_NOTE_EXIT", NOTE_EXIT);
+    ADD_INT_CONST("KQ_NOTE_FORK", NOTE_FORK);
+    ADD_INT_CONST("KQ_NOTE_EXEC", NOTE_EXEC);
+    ADD_INT_CONST("KQ_NOTE_PCTRLMASK", NOTE_PCTRLMASK);
+    ADD_INT_CONST("KQ_NOTE_PDATAMASK", NOTE_PDATAMASK);
 
-    PyModule_AddIntConstant(m, "KQ_NOTE_TRACK", NOTE_TRACK);
-    PyModule_AddIntConstant(m, "KQ_NOTE_CHILD", NOTE_CHILD);
-    PyModule_AddIntConstant(m, "KQ_NOTE_TRACKERR", NOTE_TRACKERR);
+    ADD_INT_CONST("KQ_NOTE_TRACK", NOTE_TRACK);
+    ADD_INT_CONST("KQ_NOTE_CHILD", NOTE_CHILD);
+    ADD_INT_CONST("KQ_NOTE_TRACKERR", NOTE_TRACKERR);
 #endif
 
     /* NETDEV filter flags */
 #ifdef EVFILT_NETDEV
-    PyModule_AddIntConstant(m, "KQ_NOTE_LINKUP", NOTE_LINKUP);
-    PyModule_AddIntConstant(m, "KQ_NOTE_LINKDOWN", NOTE_LINKDOWN);
-    PyModule_AddIntConstant(m, "KQ_NOTE_LINKINV", NOTE_LINKINV);
+    ADD_INT_CONST("KQ_NOTE_LINKUP", NOTE_LINKUP);
+    ADD_INT_CONST("KQ_NOTE_LINKDOWN", NOTE_LINKDOWN);
+    ADD_INT_CONST("KQ_NOTE_LINKINV", NOTE_LINKINV);
 #endif
 
 #endif /* HAVE_KQUEUE */
+
+#undef ADD_INT_CONST
+
     return 0;
 }
 
 static PyModuleDef_Slot _select_slots[] = {
     {Py_mod_exec, _select_exec},
     {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
+    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
     {0, NULL}
 };
 

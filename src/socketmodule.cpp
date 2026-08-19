@@ -108,8 +108,10 @@ Local naming conventions:
 
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
+#include "internal/pycore_capsule.h"       // _PyCapsule_SetTraverse()
 #include "internal/pycore_fileutils.h"     // _Py_set_inheritable()
 #include "internal/pycore_moduleobject.h"  // _PyModule_GetState
+#include "internal/pycore_time.h"          // _PyTime_AsMilliseconds()
 #include "structmember.h"         // PyMemberDef
 
 #ifdef _Py_MEMORY_SANITIZER
@@ -555,7 +557,7 @@ typedef struct _socket_state {
     PyObject *socket_gaierror;
 
     /* Default timeout for new sockets */
-    _PyTime_t defaulttimeout;
+    PyTime_t defaulttimeout;
 
 #if defined(HAVE_ACCEPT) || defined(HAVE_ACCEPT4)
 #if defined(HAVE_ACCEPT4) && defined(SOCK_CLOEXEC)
@@ -806,13 +808,13 @@ internal_setblocking(PySocketSockObject *s, int block)
 }
 
 static int
-internal_select(PySocketSockObject *s, int writing, _PyTime_t interval,
+internal_select(PySocketSockObject *s, int writing, PyTime_t interval,
                 int connect)
 {
     int n;
 #ifdef HAVE_POLL
     struct pollfd pollfd;
-    _PyTime_t ms;
+    PyTime_t ms;
 #else
     fd_set fds, efds;
     struct timeval tv, *tvp;
@@ -922,10 +924,10 @@ sock_call_ex(PySocketSockObject *s,
              void *data,
              int connect,
              int *err,
-             _PyTime_t timeout)
+             PyTime_t timeout)
 {
     int has_timeout = (timeout > 0);
-    _PyTime_t deadline = 0;
+    PyTime_t deadline = 0;
     int deadline_initialized = 0;
     int res;
 
@@ -939,7 +941,7 @@ sock_call_ex(PySocketSockObject *s,
            runs asynchronously. */
         if (has_timeout || connect) {
             if (has_timeout) {
-                _PyTime_t interval;
+                PyTime_t interval;
 
                 if (deadline_initialized) {
                     /* recompute the timeout */
@@ -3082,13 +3084,13 @@ Returns True if socket is in blocking mode, or False if it\n\
 is in non-blocking mode.");
 
 static int
-socket_parse_timeout(_PyTime_t *timeout, PyObject *timeout_obj)
+socket_parse_timeout(PyTime_t *timeout, PyObject *timeout_obj)
 {
 #ifdef MS_WINDOWS
     struct timeval tv;
 #endif
 #ifndef HAVE_POLL
-    _PyTime_t ms;
+    PyTime_t ms;
 #endif
     int overflow = 0;
 
@@ -3131,7 +3133,7 @@ socket_parse_timeout(_PyTime_t *timeout, PyObject *timeout_obj)
 static PyObject *
 sock_settimeout(PySocketSockObject *s, PyObject *arg)
 {
-    _PyTime_t timeout;
+    PyTime_t timeout;
 
     if (socket_parse_timeout(&timeout, arg) < 0)
         return NULL;
@@ -3190,7 +3192,7 @@ sock_gettimeout(PySocketSockObject *s, PyObject *Py_UNUSED(ignored))
         Py_RETURN_NONE;
     }
     else {
-        double seconds = _PyTime_AsSecondsDouble(s->sock_timeout);
+        double seconds = PyTime_AsSecondsDouble(s->sock_timeout);
         return PyFloat_FromDouble(seconds);
     }
 }
@@ -4876,8 +4878,8 @@ sock_sendall(PySocketSockObject *s, PyObject *args)
     Py_buffer pbuf;
     struct sock_send ctx;
     int has_timeout = (s->sock_timeout > 0);
-    _PyTime_t timeout = s->sock_timeout;
-    _PyTime_t deadline = 0;
+    PyTime_t timeout = s->sock_timeout;
+    PyTime_t deadline = 0;
     int deadline_initialized = 0;
     PyObject *res = NULL;
 
@@ -5444,17 +5446,17 @@ sock_sendmsg_afalg(PySocketSockObject *self, PyObject *args, PyObject *kwds)
 
     /* op is a required, keyword-only argument >= 0 */
     if (opobj != NULL) {
-        op = _PyLong_AsInt(opobj);
+        op = PyLong_AsInt(opobj);
     }
     if (op < 0) {
-        /* override exception from _PyLong_AsInt() */
+        /* override exception from PyLong_AsInt() */
         PyErr_SetString(PyExc_TypeError,
                         "Invalid or missing argument 'op'");
         goto finally;
     }
     /* assoclen is optional but must be >= 0 */
     if (assoclenobj != NULL) {
-        assoclen = _PyLong_AsInt(assoclenobj);
+        assoclen = PyLong_AsInt(assoclenobj);
         if (assoclen == -1 && PyErr_Occurred()) {
             goto finally;
         }
@@ -5501,7 +5503,7 @@ sock_sendmsg_afalg(PySocketSockObject *self, PyObject *args, PyObject *kwds)
     header->cmsg_level = SOL_ALG;
     header->cmsg_type = ALG_SET_OP;
     header->cmsg_len = CMSG_LEN(4);
-    uiptr = (void*)CMSG_DATA(header);
+    uiptr = (unsigned int*)CMSG_DATA(header);
     *uiptr = (unsigned int)op;
 
     /* set initialization vector */
@@ -5515,7 +5517,7 @@ sock_sendmsg_afalg(PySocketSockObject *self, PyObject *args, PyObject *kwds)
         header->cmsg_level = SOL_ALG;
         header->cmsg_type = ALG_SET_IV;
         header->cmsg_len = CMSG_SPACE(sizeof(*alg_iv) + iv.len);
-        alg_iv = (void*)CMSG_DATA(header);
+        alg_iv = (struct af_alg_iv*)CMSG_DATA(header);
         alg_iv->ivlen = iv.len;
         memcpy(alg_iv->iv, iv.buf, iv.len);
     }
@@ -5531,7 +5533,7 @@ sock_sendmsg_afalg(PySocketSockObject *self, PyObject *args, PyObject *kwds)
         header->cmsg_level = SOL_ALG;
         header->cmsg_type = ALG_SET_AEAD_ASSOCLEN;
         header->cmsg_len = CMSG_LEN(4);
-        uiptr = (void*)CMSG_DATA(header);
+        uiptr = (unsigned int*)CMSG_DATA(header);
         *uiptr = (unsigned int)assoclen;
     }
 
@@ -5572,7 +5574,7 @@ sock_shutdown(PySocketSockObject *s, PyObject *arg)
     int how;
     int res;
 
-    how = _PyLong_AsInt(arg);
+    how = PyLong_AsInt(arg);
     if (how == -1 && PyErr_Occurred())
         return NULL;
     Py_BEGIN_ALLOW_THREADS
@@ -8134,7 +8136,7 @@ socket_getdefaulttimeout(PyObject *self, PyObject *Py_UNUSED(ignored))
         Py_RETURN_NONE;
     }
     else {
-        double seconds = _PyTime_AsSecondsDouble(state->defaulttimeout);
+        double seconds = PyTime_AsSecondsDouble(state->defaulttimeout);
         return PyFloat_FromDouble(seconds);
     }
 }
@@ -8149,7 +8151,7 @@ When the socket module is first imported, the default is None.");
 static PyObject *
 socket_setdefaulttimeout(PyObject *self, PyObject *arg)
 {
-    _PyTime_t timeout;
+    PyTime_t timeout;
 
     if (socket_parse_timeout(&timeout, arg) < 0)
         return NULL;

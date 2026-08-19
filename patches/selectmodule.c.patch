@@ -1,17 +1,35 @@
 diff --git a/src/selectmodule.c b/src/selectmodule.c
-index 97f1db2..f7b87eb 100644
+index f69df69..44daec8 100644
 --- a/src/selectmodule.c
 +++ b/src/selectmodule.c
-@@ -13,9 +13,9 @@
+@@ -2,6 +2,8 @@
+    Under Unix, the file descriptors are small integers.
+    Under Win32, select only exists for sockets, and sockets may
+    have any value except INVALID_SOCKET.
++
++   Modified by CCP ehf.
+ */
+ 
+ #ifndef Py_BUILD_CORE_BUILTIN
+@@ -13,9 +15,9 @@
  #endif
  
  #include "Python.h"
 -#include "pycore_fileutils.h"     // _Py_set_inheritable()
 -#include "pycore_import.h"        // _PyImport_GetModuleAttrString()
--#include "pycore_time.h"          // _PyTime_t
+-#include "pycore_time.h"          // _PyTime_FromSecondsObject()
 +#include "internal/pycore_fileutils.h"     // _Py_set_inheritable()
 +#include "internal/pycore_import.h"        // _PyImport_GetModuleAttrString()
-+#include "internal/pycore_time.h"          // _PyTime_t
- #include "structmember.h"         // PyMemberDef
++#include "internal/pycore_time.h"          // _PyTime_FromSecondsObject()
  
  #include <stdbool.h>
+ #include <stddef.h>               // offsetof()
+@@ -2853,7 +2855,7 @@ static struct PyModuleDef selectmodule = {
+ };
+ 
+ PyMODINIT_FUNC
+-PyInit_select(void)
++CCP_CONCATENATE(PyInit_carbonselect, CCP_BUILD_FLAVOR)(void)
+ {
+     return PyModuleDef_Init(&selectmodule);
+ }

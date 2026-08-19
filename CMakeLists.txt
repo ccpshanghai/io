@@ -58,6 +58,20 @@ target_include_directories(_socket
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${SCHEDULER_INCLUDE_DIR}
 )
+# CPython 3.13's Argument Clinic unconditionally emits bare
+# #include "pycore_gc.h" / "pycore_runtime.h" / "pycore_modsupport.h"
+# into src/clinic/socketmodule.c.h (see libclinic/parse_args.py, converters.py,
+# converter.py) - unlike the hand-maintained .cpp/.h files, this generated
+# header cannot be given the "internal/" prefix CCP uses elsewhere without
+# hand-editing output that Argument Clinic will just regenerate again. Adding
+# this directory lets the bare names resolve too; zero functional change,
+# pure repackaging, same spirit as the "internal/" rewrites already applied
+# by hand in socketmodule.cpp, and the same fix Task 1 applied to _select
+# and Task 2 applied to _ssl.
+target_include_directories(_socket
+        PRIVATE
+        ${Python3_INCLUDE_DIRS}/internal
+)
 
 # The following variable is defined only on DLL systems
 if(CMAKE_IMPORT_LIBRARY_SUFFIX)
@@ -99,14 +113,13 @@ ccp_add_library(_ssl SHARED
 get_target_property(_SOURCES _ssl SOURCES)
 source_group("_ssl" FILES
         ${_SOURCES}
-        src/_ssl_data.h
         src/_ssl/debughelpers.c
         src/clinic/_ssl.c.h
 )
 target_link_libraries(_ssl
         PRIVATE
         Python3::Python
-        libuv::uv
+        $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>
         CcpCore
         PUBLIC
         OpenSSL::Crypto
@@ -127,6 +140,19 @@ target_include_directories(_ssl
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${SCHEDULER_INCLUDE_DIR}
 )
+# CPython 3.13's Argument Clinic unconditionally emits bare
+# #include "pycore_critical_section.h" / "pycore_modsupport.h" (and, depending
+# on the converters a given file uses, "pycore_long.h") into src/clinic/_ssl.c.h
+# and src/_ssl/clinic/cert.c.h - unlike the hand-maintained .c files, this
+# generated output cannot be given the "internal/" prefix CCP uses elsewhere
+# without hand-editing output that Argument Clinic will just regenerate again.
+# Adding this directory lets the bare names resolve too; zero functional change,
+# pure repackaging, same spirit as the "internal/" rewrites already applied by
+# hand in _ssl.c, and the same fix Task 1 applied to _select.
+target_include_directories(_ssl
+        PRIVATE
+        ${Python3_INCLUDE_DIRS}/internal
+)
 
 # --- _select ---
 ccp_add_library(_select SHARED
@@ -145,6 +171,18 @@ target_link_libraries(_select
         PRIVATE
         CcpCore
         Python3::Python
+)
+# CPython 3.13's Argument Clinic unconditionally emits bare
+# #include "pycore_critical_section.h" / "pycore_long.h" / "pycore_modsupport.h"
+# into src/clinic/selectmodule.c.h (see libclinic/parse_args.py, converters.py,
+# converter.py) - unlike the hand-maintained .c files, this generated header
+# cannot be given the "internal/" prefix CCP uses elsewhere without hand-editing
+# output that Argument Clinic will just regenerate again. Adding this directory
+# lets the bare names resolve too; zero functional change, pure repackaging,
+# same spirit as the "internal/" rewrites already applied by hand in selectmodule.c.
+target_include_directories(_select
+        PRIVATE
+        ${Python3_INCLUDE_DIRS}/internal
 )
 target_precompile_headers(_select PRIVATE
         <CcpMacros.h>

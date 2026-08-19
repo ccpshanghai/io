@@ -1,0 +1,8 @@
+# Patch files must check out with LF endings on every platform.
+# Without this, core.autocrlf=true can turn them into CRLF and break `git apply`.
+#
+# linguist-language=Text: GitHub otherwise detects *.patch as Diff and paints the
+# embedded +/- hunks as a nested diff. Force plain text so PR diffs show these
+# as ordinary file changes.
+*.patch text eol=lf linguist-language=Text
+*.diff  text eol=lf linguist-language=Text
