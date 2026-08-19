@@ -1,0 +1,10 @@
+# Patch files must check out with LF endings on every platform.
+# Without this, core.autocrlf=true can turn them into CRLF and break `git apply`.
+*.patch text eol=lf
+*.diff  text eol=lf
+
+# Collapse patch/diff records in GitHub PR views by default.
+# Reviewers should read the real source changes (src/, include/, tests/), not
+# nested +/- noise from regenerating these bookkeeping files.
+*.patch linguist-generated
+*.diff  linguist-generated

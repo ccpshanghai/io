@@ -1,7 +1,7 @@
-diff --git a/C:/Users/yuntao/AppData/Local/Temp/cpython-3.12.3/Modules/socketmodule.c b/external/io/src/socketmodule.cpp
+diff --git a/src/socketmodule.cpp b/src/socketmodule.cpp
 index 9724879..b414ea3 100644
---- a/C:/Users/yuntao/AppData/Local/Temp/cpython-3.12.3/Modules/socketmodule.c
-+++ b/external/io/src/socketmodule.cpp
+--- a/src/socketmodule.cpp
++++ b/src/socketmodule.cpp
 @@ -83,6 +83,7 @@ Local naming conventions:
  - names starting with socket_ are module-level functions
  - names starting with PySocket are exported through socketmodule.h

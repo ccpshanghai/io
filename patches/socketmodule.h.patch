@@ -1,7 +1,7 @@
-diff --git a/C:/Users/yuntao/AppData/Local/Temp/cpython-3.12.3/Modules/socketmodule.h b/external/io/include/socketmodule.h
+diff --git a/include/socketmodule.h b/include/socketmodule.h
 index f5ca004..9005583 100644
---- a/C:/Users/yuntao/AppData/Local/Temp/cpython-3.12.3/Modules/socketmodule.h
-+++ b/external/io/include/socketmodule.h
+--- a/include/socketmodule.h
++++ b/include/socketmodule.h
 @@ -1,5 +1,8 @@
 +#pragma once
  /* Socket module header file */

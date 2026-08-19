@@ -1,7 +1,7 @@
-diff --git a/C:/Users/yuntao/AppData/Local/Temp/cpython-3.13.15/Modules/selectmodule.c b/external/io/src/selectmodule.c
+diff --git a/src/selectmodule.c b/src/selectmodule.c
 index f69df69..44daec8 100644
---- a/C:/Users/yuntao/AppData/Local/Temp/cpython-3.13.15/Modules/selectmodule.c
-+++ b/external/io/src/selectmodule.c
+--- a/src/selectmodule.c
++++ b/src/selectmodule.c
 @@ -2,6 +2,8 @@
     Under Unix, the file descriptors are small integers.
     Under Win32, select only exists for sockets, and sockets may
