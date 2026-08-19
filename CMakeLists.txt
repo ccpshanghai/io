@@ -113,7 +113,6 @@ ccp_add_library(_ssl SHARED
 get_target_property(_SOURCES _ssl SOURCES)
 source_group("_ssl" FILES
         ${_SOURCES}
-        src/_ssl_data.h
         src/_ssl/debughelpers.c
         src/clinic/_ssl.c.h
 )
