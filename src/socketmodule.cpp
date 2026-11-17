@@ -737,11 +737,11 @@ set_gaierror(socket_state *state, int error)
 
 bool is_managed_by_libuv( int sock_type, int family )
 {
-	if ( sock_type == SOCK_DGRAM ) {
-		return true;
+	if ( sock_type & SOCK_DGRAM ) {
+		return family == AF_INET || family == AF_INET6;
 	}
 
-	if ( sock_type == SOCK_STREAM ) {
+	if ( sock_type & SOCK_STREAM ) {
 		return family == AF_INET || family == AF_INET6;
 	}
 
@@ -845,7 +845,9 @@ internal_select(PySocketSockObject *s, int writing, PyTime_t interval,
 
     /* s->sock_timeout is in seconds, timeout in ms */
     ms = _PyTime_AsMilliseconds(interval, _PyTime_ROUND_CEILING);
-    assert(ms <= INT_MAX);
+    if (ms > INT_MAX) {
+        ms = INT_MAX;
+    }
 
     /* On some OSes, typically BSD-based ones, the timeout parameter of the
        poll() syscall, when negative, must be exactly INFTIM, where defined,
@@ -857,6 +859,7 @@ internal_select(PySocketSockObject *s, int writing, PyTime_t interval,
         ms = -1;
 #endif
     }
+    assert(INT_MIN <= ms && ms <= INT_MAX);
 
     Py_BEGIN_ALLOW_THREADS;
     n = poll(&pollfd, 1, (int)ms);
@@ -1515,11 +1518,15 @@ makesockaddr(SOCKET_T sockfd, struct sockaddr *addr, size_t addrlen, int proto)
             struct sockaddr_hci *a = (struct sockaddr_hci *) addr;
 #if defined(__NetBSD__) || defined(__DragonFly__)
             return makebdaddr(&_BT_HCI_MEMB(a, bdaddr));
-#else /* __NetBSD__ || __DragonFly__ */
+#elif defined(__FreeBSD__)
+            char *node = _BT_HCI_MEMB(a, node);
+            size_t len = strnlen(node, sizeof(_BT_HCI_MEMB(a, node)));
+            return PyBytes_FromStringAndSize(node, (Py_ssize_t)len);
+#else
             PyObject *ret = NULL;
             ret = Py_BuildValue("i", _BT_HCI_MEMB(a, dev));
             return ret;
-#endif /* !(__NetBSD__ || __DragonFly__) */
+#endif
         }
 
 #if !defined(__FreeBSD__)
@@ -1808,6 +1815,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
         assert(path.len >= 0);
 
         struct sockaddr_un* addr = &addrbuf->un;
+        memset(addr, 0, sizeof(struct sockaddr_un));
 #ifdef __linux__
         if (path.len == 0 || *(const char *)path.buf == 0) {
             /* Linux abstract namespace extension:
@@ -1851,6 +1859,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
     {
         int pid, groups;
         struct sockaddr_nl* addr = &addrbuf->nl;
+        memset(addr, 0, sizeof(struct sockaddr_nl));
         if (!PyTuple_Check(args)) {
             PyErr_Format(
                 PyExc_TypeError,
@@ -1878,6 +1887,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
     {
         unsigned int node, port;
         struct sockaddr_qrtr* addr = &addrbuf->sq;
+        memset(addr, 0, sizeof(struct sockaddr_qrtr));
         if (!PyTuple_Check(args)) {
             PyErr_Format(
                 PyExc_TypeError,
@@ -1955,6 +1965,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             return 0;
         }
         struct sockaddr_in* addr = &addrbuf->in;
+        memset(addr, 0, sizeof(struct sockaddr_in));
         result = setipaddr(s->state, host.buf, (struct sockaddr *)addr,
                            sizeof(*addr),  AF_INET);
         idna_cleanup(&host);
@@ -2000,6 +2011,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             return 0;
         }
         struct sockaddr_in6* addr = &addrbuf->in6;
+        memset(addr, 0, sizeof(struct sockaddr_in6));
         result = setipaddr(s->state, host.buf, (struct sockaddr *)addr,
                            sizeof(*addr), AF_INET6);
         idna_cleanup(&host);
@@ -2038,12 +2050,14 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             struct sockaddr_l2 *addr = &addrbuf->bt_l2;
             memset(addr, 0, sizeof(struct sockaddr_l2));
             _BT_L2_MEMB(addr, family) = AF_BLUETOOTH;
-            if (!PyArg_ParseTuple(args, "si", &straddr,
-                                  &_BT_L2_MEMB(addr, psm))) {
+            unsigned short psm;
+            if (!PyArg_ParseTuple(args, "sH", &straddr, &psm)) {
                 PyErr_Format(PyExc_OSError,
                              "%s(): wrong format", caller);
                 return 0;
             }
+            _BT_L2_MEMB(addr, psm) = psm;
+
             if (setbdaddr(straddr, &_BT_L2_MEMB(addr, bdaddr)) < 0)
                 return 0;
 
@@ -2055,13 +2069,23 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
         {
             const char *straddr;
             struct sockaddr_rc *addr = &addrbuf->bt_rc;
+            memset(addr, 0, sizeof(struct sockaddr_rc));
             _BT_RC_MEMB(addr, family) = AF_BLUETOOTH;
-            if (!PyArg_ParseTuple(args, "si", &straddr,
-                                  &_BT_RC_MEMB(addr, channel))) {
-                PyErr_Format(PyExc_OSError,
-                             "%s(): wrong format", caller);
+#ifdef MS_WINDOWS
+            unsigned long channel;
+#           define FORMAT_CHANNEL "k"
+#else
+            unsigned char channel;
+#           define FORMAT_CHANNEL "B"
+#endif
+            if (!PyArg_ParseTuple(args, "s" FORMAT_CHANNEL,
+                                  &straddr, &channel)) {
+                PyErr_Format(PyExc_OSError, "%s(): wrong format", caller);
                 return 0;
             }
+#undef FORMAT_CHANNEL
+            _BT_RC_MEMB(addr, channel) = channel;
+
             if (setbdaddr(straddr, &_BT_RC_MEMB(addr, bdaddr)) < 0)
                 return 0;
 
@@ -2072,6 +2096,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
         case BTPROTO_HCI:
         {
             struct sockaddr_hci *addr = &addrbuf->bt_hci;
+            memset(addr, 0, sizeof(struct sockaddr_hci));
 #if defined(__NetBSD__) || defined(__DragonFly__)
             const char *straddr;
             _BT_HCI_MEMB(addr, family) = AF_BLUETOOTH;
@@ -2083,14 +2108,37 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             straddr = PyBytes_AS_STRING(args);
             if (setbdaddr(straddr, &_BT_HCI_MEMB(addr, bdaddr)) < 0)
                 return 0;
-#else  /* __NetBSD__ || __DragonFly__ */
+#elif defined(__FreeBSD__)
             _BT_HCI_MEMB(addr, family) = AF_BLUETOOTH;
-            if (!PyArg_ParseTuple(args, "i", &_BT_HCI_MEMB(addr, dev))) {
+            if (!PyBytes_Check(args)) {
+                PyErr_Format(PyExc_OSError, "%s: "
+                             "wrong node format", caller);
+                return 0;
+            }
+            const char *straddr = PyBytes_AS_STRING(args);
+            size_t len = PyBytes_GET_SIZE(args);
+            if (strlen(straddr) != len) {
+                PyErr_Format(PyExc_ValueError, "%s: "
+                             "node contains embedded null character", caller);
+                return 0;
+            }
+            if (len > sizeof(_BT_HCI_MEMB(addr, node))) {
+                PyErr_Format(PyExc_ValueError, "%s: "
+                             "node too long", caller);
+                return 0;
+            }
+            strncpy(_BT_HCI_MEMB(addr, node), straddr,
+                    sizeof(_BT_HCI_MEMB(addr, node)));
+#else
+            _BT_HCI_MEMB(addr, family) = AF_BLUETOOTH;
+            unsigned short dev = _BT_HCI_MEMB(addr, dev);
+            if (!PyArg_ParseTuple(args, "H", &dev)) {
                 PyErr_Format(PyExc_OSError,
                              "%s(): wrong format", caller);
                 return 0;
             }
-#endif /* !(__NetBSD__ || __DragonFly__) */
+            _BT_HCI_MEMB(addr, dev) = dev;
+#endif
             *len_ret = sizeof *addr;
             return 1;
         }
@@ -2100,6 +2148,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             const char *straddr;
 
             struct sockaddr_sco *addr = &addrbuf->bt_sco;
+            memset(addr, 0, sizeof(struct sockaddr_sco));
             _BT_SCO_MEMB(addr, family) = AF_BLUETOOTH;
             if (!PyBytes_Check(args)) {
                 PyErr_Format(PyExc_OSError,
@@ -2177,6 +2226,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             return 0;
         }
         struct sockaddr_ll* addr = &addrbuf->ll;
+        memset(addr, 0, sizeof(struct sockaddr_ll));
         addr->sll_family = AF_PACKET;
         addr->sll_protocol = htons((short)protoNumber);
         addr->sll_ifindex = ifr.ifr_ifindex;
@@ -2261,6 +2311,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             struct ifreq ifr;
             Py_ssize_t len;
             struct sockaddr_can *addr = &addrbuf->can;
+            memset(addr, 0, sizeof(struct sockaddr_can));
 
             if (!PyTuple_Check(args)) {
                 PyErr_Format(PyExc_TypeError,
@@ -2313,6 +2364,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             unsigned long int rx_id, tx_id;
 
             struct sockaddr_can *addr = &addrbuf->can;
+            memset(addr, 0, sizeof(struct sockaddr_can));
 
             if (!PyArg_ParseTuple(args, "O&kk", PyUnicode_FSConverter,
                                               &interfaceName,
@@ -2360,6 +2412,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             uint8_t j1939_addr;
 
             struct sockaddr_can *addr = &addrbuf->can;
+            memset(addr, 0, sizeof(struct sockaddr_can));
 
             if (!PyArg_ParseTuple(args, "O&KIB", PyUnicode_FSConverter,
                                               &interfaceName,
@@ -2412,6 +2465,7 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
         case SYSPROTO_CONTROL:
         {
             struct sockaddr_ctl *addr = &addrbuf->ctl;
+            memset(addr, 0, sizeof(struct sockaddr_ctl));
             addr->sc_family = AF_SYSTEM;
             addr->ss_sysaddr = AF_SYS_CONTROL;
 
@@ -3348,7 +3402,9 @@ sock_getsockopt(PySocketSockObject *s, PyObject *args)
     }
     buf = PyBytes_FromStringAndSize((char *)NULL, buflen);
     if (buf == NULL)
-        return NULL;
+    {
+	    return NULL;
+    }
 	res = getsockopt( s->sock_fd, level, optname, (char*)PyBytes_AS_STRING( buf ), &buflen );
 	if( res < 0 )
 	{
@@ -3403,7 +3459,7 @@ sock_bind(PySocketSockObject *s, PyObject *addro)
 				}
 			}
 			
-			if ( s->sock_type == SOCK_STREAM )
+			if ( s->sock_type & SOCK_STREAM )
 			{
 				auto handle = reinterpret_cast<uv_tcp_t *>(s->uv_handle);
 				if ( ipv6_v6only_flag )
@@ -3411,7 +3467,7 @@ sock_bind(PySocketSockObject *s, PyObject *addro)
 					bind_flags = UV_TCP_IPV6ONLY;
 				}
 				res = uv_tcp_bind(handle, SAS2SA(&addrbuf), bind_flags );
-			} else if ( s->sock_type == SOCK_DGRAM )
+			} else if ( s->sock_type & SOCK_DGRAM )
 			{
 				auto handle = reinterpret_cast<uv_udp_t *>(s->uv_handle);
 				if ( ipv6_v6only_flag )
@@ -3669,7 +3725,7 @@ sock_connect(PySocketSockObject *s, PyObject *addro)
 
 	if( is_managed_by_libuv( s ) )
 	{
-		if( s->sock_type != SOCK_STREAM )
+		if( !(s->sock_type & SOCK_STREAM) )
 		{
 			PyErr_SetString(PyExc_NotImplementedError, "Unsupported libuv connection type");
 			return nullptr;
@@ -3722,7 +3778,7 @@ sock_connect_ex(PySocketSockObject *s, PyObject *addro)
 
 	if( is_managed_by_libuv( s ) )
 	{
-		if( s->sock_type != SOCK_STREAM )
+		if( !(s->sock_type & SOCK_STREAM) )
 		{
 			PyErr_SetString(PyExc_NotImplementedError, "Unsupported libuv connection type");
 			return nullptr;
@@ -3870,7 +3926,9 @@ sock_listen(PySocketSockObject *s, PyObject *args)
     /* To avoid problems on systems that don't allow a negative backlog
      * (which doesn't make sense anyway) we force a minimum value of 0. */
     if (backlog < 0)
-        backlog = 0;
+    {
+	    backlog = 0;
+    }
 	
 	if( is_managed_by_libuv( s ) ) {
 		if( !is_valid_uv_handle( s->uv_handle ) ) {
@@ -4019,11 +4077,11 @@ sock_recv(PySocketSockObject *s, PyObject *args)
 	
 	if ( is_managed_by_libuv( s ))
 	{
-		if( s->sock_type == SOCK_STREAM )
+		if( s->sock_type & SOCK_STREAM )
 		{
 			return uv_tcp_recv_impl( s, recvlen, flags );
 		}
-		else if( s->sock_type == SOCK_DGRAM )
+		else if( s->sock_type & SOCK_DGRAM )
 		{
 			auto tup = uv_udp_recv_impl( s, recvlen, flags );
 			if( !tup )
@@ -4111,7 +4169,7 @@ sock_recv_into(PySocketSockObject *s, PyObject *args, PyObject *kwds)
 	
 	if( is_managed_by_libuv( s ) )
 	{
-		if( s->sock_type == SOCK_STREAM )
+		if( s->sock_type & SOCK_STREAM )
 		{
 			auto request = std::make_shared<StreamRecvIntoRequest>(s, buf, recvlen, flags);
 			PyObject* bytesReceived = request->execute();
@@ -4252,11 +4310,13 @@ sock_recvfrom(PySocketSockObject *s, PyObject *args)
 
     buf = PyBytes_FromStringAndSize((char *) 0, recvlen);
     if (buf == NULL)
-        return NULL;
+    {
+	    return NULL;
+    }
 
 	if( is_managed_by_libuv( s ) )
 	{
-		if( s->sock_type == SOCK_STREAM )
+		if( s->sock_type & SOCK_STREAM )
 		{
 			sockaddr_storage name;
 			int namelen = sizeof( sockaddr_storage );
@@ -4279,7 +4339,7 @@ sock_recvfrom(PySocketSockObject *s, PyObject *args)
 			}
 			ret = PyTuple_Pack( 2, buf, addr );
 		}
-		else if ( s->sock_type == SOCK_DGRAM )
+		else if ( s->sock_type & SOCK_DGRAM )
 		{
 			ret = uv_udp_recv_impl( s, recvlen, flags );
 		}
@@ -4356,7 +4416,7 @@ sock_recvfrom_into(PySocketSockObject *s, PyObject *args, PyObject* kwds)
 
 	if( is_managed_by_libuv( s ) )
 	{
-		if( s->sock_type == SOCK_STREAM )
+		if( s->sock_type & SOCK_STREAM )
 		{
 			auto request = std::make_shared<StreamRecvIntoRequest>(s, buf, recvlen, flags);
 			PyObject* bytesReceived = request->execute();
@@ -4367,16 +4427,18 @@ sock_recvfrom_into(PySocketSockObject *s, PyObject *args, PyObject* kwds)
 			}
 			readlen = PyLong_AsSsize_t(bytesReceived);
 			
-			sock_addr_t addrbuf;
-			socklen_t addrlen;
+			sockaddr_storage addrbuf;
+			int addrlen = sizeof( sockaddr_storage );
 
-			if( !getsockaddrlen( s, &addrlen ) )
+			int status = uv_tcp_getpeername(reinterpret_cast<uv_tcp_t*>( s->uv_handle ), reinterpret_cast<sockaddr*>(&addrbuf), &addrlen);
+			if ( status < 0 )
 			{
-				PyBuffer_Release(&pbuf);
-				return nullptr;
+			  PyErr_FromUvErr( status );
+			  PyBuffer_Release(&pbuf);
+			  return nullptr;
 			}
 
-			addr = makesockaddr( s->sock_fd, SAS2SA( &addrbuf ), addrlen, s->sock_proto );
+			addr = makesockaddr( s->sock_fd, reinterpret_cast<sockaddr*>(&addrbuf), addrlen, s->sock_proto );
 			if( !addr )
 			{
 				PyBuffer_Release(&pbuf);
@@ -4818,7 +4880,9 @@ sock_send(PySocketSockObject *s, PyObject *args)
     struct sock_send ctx;
 
     if (!PyArg_ParseTuple(args, "y*|i:send", &pbuf, &flags))
-        return NULL;
+    {
+	    return NULL;
+    }
 
 	if( is_managed_by_libuv( s ) )
 	{
@@ -4884,7 +4948,9 @@ sock_sendall(PySocketSockObject *s, PyObject *args)
     PyObject *res = NULL;
 
     if (!PyArg_ParseTuple(args, "y*|i:sendall", &pbuf, &flags))
-        return NULL;
+    {
+	    return NULL;
+    }
 	buf = reinterpret_cast<char*>( pbuf.buf );
     len = pbuf.len;
 
@@ -5057,7 +5123,7 @@ sock_sendto(PySocketSockObject *s, PyObject *args)
     ctx.addrbuf = &addrbuf;
 	if ( is_managed_by_libuv( s ) )
 	{
-		if ( s->sock_type == SOCK_DGRAM )
+		if (s->sock_type & SOCK_DGRAM )
 		{
 			auto ret = uv_udp_sendto_impl( s, &ctx );
 			if( !ret )
@@ -5072,7 +5138,7 @@ sock_sendto(PySocketSockObject *s, PyObject *args)
 				return nullptr;
 			}
 		}
-		else if ( s->sock_type == SOCK_STREAM ) {
+		else if ( s->sock_type & SOCK_STREAM ) {
 			auto py_status = uv_sendall_impl(s, reinterpret_cast<char*>(pbuf.buf), pbuf.len, flags);
 			if ( !py_status )
 			{
@@ -5517,7 +5583,7 @@ sock_sendmsg_afalg(PySocketSockObject *self, PyObject *args, PyObject *kwds)
         header->cmsg_level = SOL_ALG;
         header->cmsg_type = ALG_SET_IV;
         header->cmsg_len = CMSG_SPACE(sizeof(*alg_iv) + iv.len);
-        alg_iv = (struct af_alg_iv*)CMSG_DATA(header);
+        alg_iv = (af_alg_iv*)CMSG_DATA(header);
         alg_iv->ivlen = iv.len;
         memcpy(alg_iv->iv, iv.buf, iv.len);
     }
@@ -6379,7 +6445,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
 				if( s->uv_handle == nullptr )
 				{
 					// No handle found for re-use, must create one.
-					if( type == SOCK_STREAM )
+					if( type & SOCK_STREAM )
 					{
 						auto handle = create_uv_tcp_handle( &fd, family );
 						if( !handle )
@@ -6388,7 +6454,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
 						}
 						s->uv_handle = reinterpret_cast<uv_handle_t*>( handle );
 					}
-					else if( type == SOCK_DGRAM )
+					else if( type & SOCK_DGRAM )
 					{
 						auto handle = create_uv_udp_handle( &fd, family );
 						if( !handle )
@@ -6414,7 +6480,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
         }
 		if ( is_managed_by_libuv( type, family ))
 		{
-			if( type == SOCK_STREAM )
+			if( type & SOCK_STREAM )
 			{
 				auto handle = create_uv_tcp_handle( &fd, family );
 				if( !handle )
@@ -6423,7 +6489,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
 				}
 				s->uv_handle = reinterpret_cast<uv_handle_t*>( handle );
 			}
-			else if( type == SOCK_DGRAM )
+			else if( type & SOCK_DGRAM )
 			{
 				auto handle = create_uv_udp_handle( &fd, family );
 				if( !handle )
@@ -6484,7 +6550,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
 			s->uv_handle = LookupHandle( fd );
 			if ( ! s->uv_handle && is_managed_by_libuv( type, family ) )
 			{
-				if( type == SOCK_STREAM )
+				if( type & SOCK_STREAM )
 				{
 					auto handle = create_uv_tcp_handle(&fd, family);
 					if( !handle )
@@ -6493,7 +6559,7 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
 					}
 					s->uv_handle = reinterpret_cast<uv_handle_t*>(handle);
 				}
-				else if( type == SOCK_DGRAM )
+				else if( type & SOCK_DGRAM )
 				{
 					auto handle = create_uv_udp_handle(&fd, family);
 					if( !handle )
@@ -7362,7 +7428,7 @@ socket_dup(PyObject *self, PyObject *fdobj)
 
 	if( is_managed_by_libuv( type, family ) )
 	{
-		if( type == SOCK_STREAM )
+		if( type & SOCK_STREAM )
 		{
 			if (!dup_uv_tcp_handle( newfd ) )
 			{
@@ -7370,7 +7436,7 @@ socket_dup(PyObject *self, PyObject *fdobj)
 				return nullptr;
 			}
 		}
-		else if( type == SOCK_DGRAM )
+		else if( type & SOCK_DGRAM )
 		{
 			if ( !dup_uv_udp_handle( newfd ) )
 			{
@@ -7430,9 +7496,9 @@ socket_socketpair(PyObject *self, PyObject *args)
         return NULL;
 
     /* Create a pair of socket fds */
-    Py_BEGIN_ALLOW_THREADS
 #ifdef SOCK_CLOEXEC
     if (state->sock_cloexec_works != 0) {
+    	Py_BEGIN_ALLOW_THREADS
         ret = socketpair(family, type | SOCK_CLOEXEC, proto, sv);
         if (state->sock_cloexec_works == -1) {
             if (ret >= 0) {
@@ -7444,10 +7510,10 @@ socket_socketpair(PyObject *self, PyObject *args)
                 ret = socketpair(family, type, proto, sv);
             }
         }
+    	Py_END_ALLOW_THREADS
     }
     else
 #endif
-	Py_END_ALLOW_THREADS
 	if( !is_managed_by_libuv(type, family) )
 	{
 #ifdef HAVE_SOCKETPAIR
