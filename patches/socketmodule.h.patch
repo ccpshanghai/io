@@ -1,5 +1,5 @@
 diff --git a/include/socketmodule.h b/include/socketmodule.h
-index f5ca004..9005583 100644
+index f5ca004..4185a0e 100644
 --- a/include/socketmodule.h
 +++ b/include/socketmodule.h
 @@ -1,5 +1,8 @@
@@ -11,16 +11,7 @@ index f5ca004..9005583 100644
  /* Includes needed for the sockaddr_* symbols below */
  #ifndef MS_WINDOWS
  #ifdef __VMS
-@@ -98,6 +101,8 @@ typedef int socklen_t;
- #  include <asm/types.h>
- # endif
- # include <linux/netlink.h>
-+#elif defined(HAVE_NETLINK_NETLINK_H)
-+# include <netlink/netlink.h>
- #else
- #  undef AF_NETLINK
- #endif
-@@ -224,7 +229,7 @@ extern "C" {
+@@ -224,7 +227,7 @@ extern "C" {
  #endif
  
  /* Python module and C API name */
@@ -29,7 +20,7 @@ index f5ca004..9005583 100644
  #define PySocket_CAPI_NAME      "CAPI"
  #define PySocket_CAPSULE_NAME   PySocket_MODULE_NAME "." PySocket_CAPI_NAME
  
-@@ -311,7 +316,9 @@ typedef union sock_addr {
+@@ -311,7 +314,9 @@ typedef union sock_addr {
     like the address family, which is used to decode socket address
     arguments properly. */
  
@@ -40,7 +31,7 @@ index f5ca004..9005583 100644
      PyObject_HEAD
      SOCKET_T sock_fd;           /* Socket file descriptor */
      int sock_family;            /* Address family, e.g., AF_INET */
-@@ -320,9 +327,10 @@ typedef struct {
+@@ -320,9 +325,10 @@ typedef struct {
      PyObject *(*errorhandler)(void); /* Error handler; checks
                                          errno, returns NULL and
                                          sets a Python exception */
@@ -52,7 +43,7 @@ index f5ca004..9005583 100644
  } PySocketSockObject;
  
  /* --- C API ----------------------------------------------------*/
-@@ -377,12 +385,81 @@ typedef struct {
+@@ -377,12 +383,81 @@ typedef struct {
  
  /* C API for usage by other Python modules.
   * Always add new things to the end for binary compatibility. */

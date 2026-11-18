@@ -7,12 +7,13 @@
 #include <set>
 #include <vector>
 
+#include <CcpMacros.h>
 #include <CcpTelemetry.h>
-
-#define TELEMETRY_ZONE( zone ) TelemetryZone telemetry_zone##__COUNTER__( TMCM_CPP, zone, __FILE__, __LINE__ )
 
 #include "socketmodule.h"
 #include "protocol.h"
+
+#define TELEMETRY_ZONE( zoneName ) TelemetryZone CCP_ANONYMOUS_VARIABLE( telemetryZone_ )( TelemetryCategory(), zoneName, __FILE__, __LINE__ )
 
 #ifndef INVALID_SOCKET /* MS defines this */
 #define INVALID_SOCKET ( -1 )
@@ -52,6 +53,12 @@ static std::vector<OobDataCallback> s_oobDataCallbacks{};
 
 static std::unordered_map<SOCKET_T, uv_handle_t*> s_uvHandleLookup;
 static std::mutex s_uvHandleLookupLock;
+
+const CcpTelemetryCategory& TelemetryCategory()
+{
+	static const CcpTelemetryCategory& category = CcpTelemetryCategoryRegister( "io" ).first;
+	return category;
+}
 
 void AddToLookupTable( SOCKET_T fileDescriptor, uv_handle_t* uvHandle )
 {
@@ -108,6 +115,10 @@ bool InitScheduler()
 }
 
 int InitUvLoop() {
+	if ( auto [category, ok] = CcpTelemetryCategoryRegister( "io" ); !ok )
+	{
+		CCP_LOGWARN( "Could not register a telemetry category for `io`, no profiling zones will be emitted." );
+	}
 	// uv_loop instances aren't thread-safe, thus we keep a loop instance per thread for which we need to initialize TLS
 	auto status = uv_key_create(&s_tlsKey);
 	if ( status != 0 ) {
@@ -330,13 +341,13 @@ void LogError( const char* msg )
 {
 	if( !PyErr_Occurred() )
 	{
-		CCP_LOGERR("%s", msg);
+		CCP_LOGERR( "%s", msg );
 		return;
 	}
 	PyObject *exc, *val, *tb;
 	PyErr_Fetch( &exc, &val, &tb );
 	auto errorString = std::string(msg) + "\n\n" + FormatException(exc, val, tb);
-	CCP_LOGERR("%s", errorString.c_str());
+	CCP_LOGERR( "%s", errorString.c_str() );
 	PyErr_Restore(exc, val, tb);
 }
 
@@ -720,6 +731,7 @@ void growingBufferAlloc(uv_handle_t* handle, size_t size, uv_buf_t* buf)
 	if( unreadBytes < handleBuf.len )
 	{
 		memmove_s(handleBuf.base, handleBuf.len, handleBuf.base + data->bufReadPos, unreadBytes);
+
 		data->bufWritePos -= data->bufReadPos;
 		data->bufReadPos = 0;
 
@@ -1623,6 +1635,7 @@ void StreamRecvIntoRequest::alloc( uv_handle_t* handle, size_t size, uv_buf_t* b
 	{
 		auto copyAmount = unreadBytes < request->m_requested_len ? unreadBytes : request->m_requested_len;
 		memcpy_s(buf->base, copyAmount, requestData->buf.base + requestData->bufReadPos, copyAmount);
+
 		buf->base += copyAmount;
 		buf->len -= ULONG( copyAmount );
 		requestData->bufReadPos += copyAmount;
@@ -1932,6 +1945,12 @@ bool StreamPacketReceiveRequest::needMore() {
 			if ( m_oobDataLen > m_requestData->maxPacketSize )
 			{
 				PyErr_Format(PyExc_OSError, "corrupted out-of-band data in packet detected at %d bytes, max is %llu", m_oobDataLen, m_requestData->maxPacketSize);
+				return false;
+			}
+
+			if ( static_cast<size_t>( m_oobDataLen ) + sizeof( m_oobDataLen ) > payloadLen() )
+			{
+				PyErr_Format(PyExc_OSError, "corrupted out-of-band data in packet: oob length %u exceeds payload size %zu", m_oobDataLen, payloadLen());
 				return false;
 			}
 

@@ -27,7 +27,7 @@ target_precompile_headers(_socket PRIVATE
         <memory>
         <string>
         <string_view>
-        <CCPLog.h>
+        <CcpLog.h>
         <CcpMacros.h>
         <CcpScopeGuard.h>
 )
@@ -114,6 +114,7 @@ get_target_property(_SOURCES _ssl SOURCES)
 source_group("_ssl" FILES
         ${_SOURCES}
         src/_ssl/debughelpers.c
+        src/_ssl/distrusted_spki.h
         src/clinic/_ssl.c.h
 )
 target_link_libraries(_ssl
@@ -202,7 +203,7 @@ if(CMAKE_PROJECT_NAME STREQUAL io)
 
         if(WIN32)
             set(ENV{PYTHONPATH} ${CMAKE_CURRENT_SOURCE_DIR}/python)
-        elseif(APPLE)
+        elseif(APPLE OR LINUX)
             set(ENV{PYTHONPATH} ${CMAKE_CURRENT_SOURCE_DIR}/python)
         endif()
         # Discovery works with the standard python interpreter because it isn't running anything, it just needs to find all
@@ -234,7 +235,7 @@ if(CMAKE_PROJECT_NAME STREQUAL io)
                         ENVIRONMENT
                         "PYTHONPATH=$<TARGET_FILE_DIR:_socket>\;$<TARGET_FILE_DIR:sockettesthelper>\;${CMAKE_CURRENT_SOURCE_DIR}/python\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib;BUILDFLAVOR=$<LOWER_CASE:$<CONFIG>>"
                 )
-            elseif (APPLE)
+            elseif (APPLE OR LINUX)
                 set_tests_properties(
                         ${PYTHON_TEST}
                         PROPERTIES
@@ -267,7 +268,7 @@ if(CMAKE_PROJECT_NAME STREQUAL io)
             # Run sphinx
             if(WIN32)
                 set(PYTHONPATH_ENV_SPHINX "${CMAKE_SOURCE_DIR}/python/\;$<TARGET_FILE_DIR:_socket>\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python\;${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
-            elseif(APPLE)
+            elseif(APPLE OR LINUX)
                 set(PYTHONPATH_ENV_SPHINX "${CMAKE_SOURCE_DIR}/python/:$<TARGET_FILE_DIR:_socket>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/python:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
             endif()
 
